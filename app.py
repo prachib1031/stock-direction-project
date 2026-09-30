@@ -5,6 +5,9 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 
 st.title("Stock Direction Explorer")
 st.write("Explore stock history and test next-day predictions.")
@@ -17,8 +20,8 @@ if st.button("Load stock data"):
         st.warning("Enter a stock symbol first.")
     else:
         with st.spinner("Loading stock history..."):
-            history = yf.Ticker(ticker).history(period="5y")
-
+            today = datetime.now(ZoneInfo("America/New_York")).date()
+            history = yf.Ticker(ticker).history(period="5y", end=today)
         if history.empty:
             st.warning("No data found. Try another stock symbol.")
         else:
@@ -43,8 +46,13 @@ if st.button("Load stock data"):
             st.dataframe(history[["Close", "Target"]].tail())
 
             features = ["Daily Return", "5-Day Return"]
-            model_data = history.dropna(subset=features + ["Target"])
-
+            model_data = history.dropna(subset=["Daily Return", "5-Day Return", "Target"])            
+            if len(model_data) < 500:
+                st.warning(
+                    "Not enough history for this experiment. "
+                    "Please choose a symbol with at least 500 usable trading days."
+                )
+                st.stop()
             split = int(len(model_data) * 0.8)
             train = model_data.iloc[:split].copy()
             test = model_data.iloc[split:].copy()
